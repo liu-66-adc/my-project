@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>代码编辑 - 代码实践平台</title>
+    <!-- Monaco Editor 编辑器 (bootcdn国内CDN) -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/monaco-editor/0.44.0/min/vs/loader.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1e1e1e; color: #d4d4d4;
+            height: 100vh; overflow: hidden;
+        }
+        .header {
+            height: 50px; background: #2d2d30;
+            display: flex; align-items: center;
+            padding: 0 20px; border-bottom: 1px solid #3e3e42;
+        }
+        .header-left { display: flex; align-items: center; gap: 15px; }
+        .logo { font-size: 18px; font-weight: bold; color: #4ec9b0; }
+        .task-select {
+            background: #3c3c3c; border: 1px solid #555;
+            color: #ccc; padding: 6px 12px;
+            border-radius: 4px; font-size: 13px;
+        }
+        .student-info { margin-left: auto; font-size: 13px; color: #9cdcfe; }
+        .main { display: flex; height: calc(100vh - 50px); }
+        .editor-panel { flex: 1; display: flex; flex-direction: column; }
+        .toolbar {
+            height: 40px; background: #252526;
+            display: flex; align-items: center;
+            padding: 0 15px; gap: 10px;
+            border-bottom: 1px solid #3e3e42;
+        }
+        .toolbar button {
+            padding: 6px 16px; border: none; border-radius: 4px;
+            font-size: 13px; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-run { background: #4ec9b0; color: #1e1e1e; font-weight: 600; }
+        .btn-run:hover { background: #3db89f; }
+        .btn-submit { background: #007acc; color: white; }
+        .btn-submit:hover { background: #0062a3; }
+        .language-select {
+            background: #3c3c3c; border: 1px solid #555;
+            color: #ccc; padding: 5px 10px;
+            border-radius: 4px; font-size: 12px;
+        }
+        #editor { flex: 1; }
+        .console {
+            height: 120px; background: #1e1e1e;
+            border-top: 1px solid #3e3e42;
+            padding: 10px; font-family: 'Consolas', monospace;
+            font-size: 13px; overflow-y: auto;
+        }
+        .console-line { margin: 2px 0; }
+        .console-output { color: #4ec9b0; }
+        .console-error { color: #f48771; }
+        .console-warning { color: #dcdcaa; }
+        .console-info { color: #569cd6; }
+
+        .score-panel {
+            width: 380px; background: #252526;
+            border-left: 1px solid #3e3e42;
+            display: flex; flex-direction: column;
+            overflow-y: auto;
+        }
+        .score-header {
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            text-align: center;
+        }
+        .score-total { font-size: 48px; font-weight: bold; color: white; }
+        .score-label { font-size: 14px; color: rgba(255,255,255,0.8); margin-top: 5px; }
+        .score-details { padding: 15px; }
+        .score-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px; margin-bottom: 8px;
+            background: #2d2d30; border-radius: 8px;
+        }
+        .score-item-name { font-size: 13px; color: #ccc; }
+        .score-item-comment { font-size: 11px; color: #888; margin-top: 3px; }
+        .score-item-value { font-size: 16px; font-weight: bold; }
+        .score-good { color: #4ec9b0; }
+        .score-warning { color: #dcdcaa; }
+        .score-bad { color: #f48771; }
+
+        .problems-section { padding: 15px; border-top: 1px solid #3e3e42; }
+        .section-title {
+            font-size: 14px; font-weight: 600; color: #4ec9b0;
+            margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
+        }
+        .problem-item {
+            padding: 10px; background: #3c1e1e;
+            border-left: 3px solid #f48771;
+            border-radius: 0 6px 6px 0;
+            margin-bottom: 8px;
+            font-size: 13px; color: #d4d4d4; line-height: 1.5;
+        }
+        .suggestion-box {
+            padding: 15px; background: #1e3c1e;
+            border-left: 3px solid #4ec9b0;
+            border-radius: 0 6px 6px 0;
+            margin: 0 15px 15px;
+            font-size: 13px; color: #d4d4d4;
+            line-height: 1.6; white-space: pre-wrap;
+        }
+        .loading {
+            display: none; text-align: center;
+            padding: 20px; color: #888;
+        }
+        .loading.active { display: block; }
+        .task-desc {
+            padding: 12px 15px; background: #1e1e3c;
+            border-bottom: 1px solid #3e3e42;
+            font-size: 13px; line-height: 1.6;
+        }
+        .task-desc-title { color: #dcdcaa; font-weight: 600; margin-bottom: 6px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-left">
+            <span class="logo">🚀 代码实践</span>
+            <select class="task-select" id="taskSelect">
+                <option value="task-001">任务1：最短路径实现</option>
+                <option value="task-002">任务2：排序算法实现</option>
+                <option value="task-003">任务3：二叉树遍历</option>
+            </select>
+        </div>
+        <div class="student-info" id="studentDisplay">未登录</div>
+    </div>
+
+    <div class="main">
+        <div class="editor-panel">
+            <div class="toolbar">
+                <select class="language-select" id="languageSelect">
+                    <option value="cpp">C++</option>
+                    <option value="c">C</option>
+                    <option value="java">Java</option>
+                    <option value="python">Python</option>
+                </select>
+                <button class="btn-run" onclick="runCode()">▶ 运行测试</button>
+                <button class="btn-submit" onclick="submitCode()">📤 提交评分</button>
+            </div>
+
+            <div class="task-desc">
+                <div class="task-desc-title">📋 任务描述</div>
+                <div id="taskDescription">
+                    实现Dijkstra算法，求解带权有向图的单源最短路径。
+                    输入：邻接矩阵表示的图，源点编号。
+                    输出：源点到各顶点的最短距离和路径。
+                </div>
+            </div>
+
+            <div id="editor" style="flex:1;position:relative;min-height:300px;">
+                <textarea id="code-editor" style="width:100%;height:100%;background:#1e1e1e;color:#d4d4d4;border:none;padding:16px;font-family:'Consolas','Courier New',monospace;font-size:14px;line-height:1.6;resize:none;outline:none;tab-size:4;box-sizing:border-box;position:absolute;top:0;left:0;" spellcheck="false" wrap="off">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;queue&gt;
+using namespace std;
+
+// 请实现Dijkstra算法
+int main() {
+    int n, m;
+    cin &gt;&gt; n &gt;&gt; m;
+    
+    // 你的代码在这里
+    
+    return 0;
+}</textarea>
+            </div>
+
+            <div class="console" id="console">
+                <div class="console-line console-info">💡 点击"提交评分"获取AI智能评分反馈...</div>
+            </div>
+        </div>
+
+        <div class="score-panel">
+            <div class="score-header">
+                <div class="score-total" id="scoreTotal">--</div>
+                <div class="score-label">AI智能评分</div>
+            </div>
+
+            <div class="loading" id="loading">
+                🤖 AI正在评分中，请稍候...
+            </div>
+
+            <div class="score-details" id="scoreDetails">
+                <div class="score-item">
+                    <span class="score-item-name">提交后查看评分详情</span>
+                </div>
+            </div>
+
+            <div class="problems-section" id="problemsSection" style="display:none;">
+                <div class="section-title">⚠️ 存在的问题</div>
+                <div id="problemsList"></div>
+            </div>
+
+            <div id="suggestionSection" style="display:none;">
+                <div class="section-title" style="padding: 0 15px;">💡 改进建议</div>
+                <div class="suggestion-box" id="suggestionBox"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/v1';
+        let studentId, studentName, course;
+        var monacoEditor = null;
+        var editorType = 'textarea';
+
+        const TEMPLATES = {
+            cpp: `#include <iostream>
+#include <vector>
+#include <queue>
+using namespace std;
+
+// 请实现Dijkstra算法
+int main() {
+    int n, m;
+    cin >> n >> m;
+    
+    // 你的代码在这里
+    
+    return 0;
+}`,
+            c: `#include <stdio.h>
+#include <stdlib.h>
+
+// 请实现Dijkstra算法
+int main() {
+    int n, m;
+    scanf("%d %d", &n, &m);
+    
+    // 你的代码在这里
+    
+    return 0;
+}`,
+            java: `import java.util.*;
+
+public class Main {
+    // 请实现Dijkstra算法
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        int n = sc.nextInt();
+        int m = sc.nextInt();
+        
+        // 你的代码在这里
+        
+    }
+}`,
+            python: `# 请实现Dijkstra算法
+
+def dijkstra(graph, start):
+    # 你的代码在这里
+    pass
+
+if __name__ == "__main__":
+    n, m = map(int, input().split())
+    # 你的代码在这里`
+        };
+
+        window.onload = function() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = 'index.html';
+                return;
+            }
+            studentName = localStorage.getItem('studentName') || '未登录';
+            course = localStorage.getItem('course') || '';
+            studentId = localStorage.getItem('username') || 'guest';
+            document.getElementById('studentDisplay').textContent = 
+                studentName + ' (' + studentId + ') | ' + course;
+
+            // 先创建文本编辑器降级方案
+            initTextareaEditor();
+            editorType = 'textarea';
+
+            // 再尝试升级到Monaco Editor（VS Code内核）
+            tryLoadMonaco();
+
+            document.getElementById('languageSelect').addEventListener('change', (e) => {
+                const lang = e.target.value;
+                if (editor && editor.setValue) {
+                    editor.setValue(TEMPLATES[lang] || TEMPLATES.cpp);
+                }
+                if (typeof monacoEditor !== 'undefined' && monacoEditor) {
+                    const model = monacoEditor.getModel();
+                    if (model && monaco.editor.setModelLanguage) {
+                        monaco.editor.setModelLanguage(model, lang === 'python' ? 'python' : lang);
+                    }
+                }
+            });
+
+            loadTasks();
+        };
+
+        var editor = null;
+
+        function tryLoadMonaco() {
+            if (typeof require === 'undefined') {
+                console.log('Monaco loader not available, using textarea');
+                return;
+            }
+            try {
+                require.config({
+                    paths: { 'vs': 'https://cdn.bootcdn.net/ajax/libs/monaco-editor/0.44.0/min/vs' }
+                });
+                require(['vs/editor/editor.main'], function() {
+                    upgradeToMonaco();
+                }, function(err) {
+                    console.log('Monaco Editor failed to load, using textarea:', err);
+                });
+            } catch(e) {
+                console.log('Monaco init error, using textarea:', e);
+            }
+        }
+
+        function upgradeToMonaco() {
+            var container = document.getElementById('editor');
+            if (!container) return;
+            var code = document.getElementById('code-editor').value || TEMPLATES.cpp;
+            var lang = document.getElementById('languageSelect').value;
+            container.innerHTML = '';
+            monacoEditor = monaco.editor.create(container, {
+                value: code,
+                language: lang === 'python' ? 'python' : lang,
+                theme: 'vs-dark',
+                fontSize: 14,
+                minimap: { enabled: false },
+                automaticLayout: true,
+                scrollBeyondLastLine: false,
+                tabSize: 4,
+                insertSpaces: false
+            });
+            editorType = 'monaco';
+            editor = {
+                getValue: function() { return monacoEditor.getValue(); },
+                setValue: function(v) { monacoEditor.setValue(v); },
+                getModel: function() { return monacoEditor.getModel(); }
+            };
+            console.log('Monaco Editor loaded successfully!');
+        }
+
+        function initTextareaEditor() {
+            var textarea = document.getElementById('code-editor');
+            if (!textarea) return;
+            // Tab键插入空格
+            textarea.addEventListener('keydown', function(e) {
+                if (e.key === 'Tab') {
+                    e.preventDefault();
+                    var start = this.selectionStart;
+                    var end = this.selectionEnd;
+                    this.value = this.value.substring(0, start) + '    ' + this.value.substring(end);
+                    this.selectionStart = this.selectionEnd = start + 4;
+                }
+            });
+            editor = {
+                getValue: function() { return document.getElementById('code-editor').value; },
+                setValue: function(v) { document.getElementById('code-editor').value = v; },
+                getModel: function() { return { getValue: function() { return document.getElementById('code-editor').value; } }; }
+            };
+        }
+
+        async function loadTasks() {
+            try {
+                const res = await fetch(API_BASE + '/student/tasks?course=' + encodeURIComponent(course));
+                const data = await res.json();
+                if (data.code === 200 && data.data) {
+                    const select = document.getElementById('taskSelect');
+                    select.innerHTML = '';
+                    data.data.forEach(t => {
+                        const opt = document.createElement('option');
+                        opt.value = t.task_id;
+                        opt.textContent = t.task_id + '：' + t.title;
+                        select.appendChild(opt);
+                    });
+                }
+            } catch (e) {
+                console.log('加载任务失败', e);
+            }
+        }
+
+        function log(msg, type) {
+            type = type || 'info';
+            const consoleEl = document.getElementById('console');
+            const line = document.createElement('div');
+            line.className = 'console-line console-' + type;
+            line.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+            consoleEl.appendChild(line);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        async function submitCode() {
+            const code = editor.getValue();
+            const language = document.getElementById('languageSelect').value;
+            const taskId = document.getElementById('taskSelect').value;
+
+            if (!code.trim()) {
+                alert('请先编写代码');
+                return;
+            }
+
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('scoreDetails').innerHTML = '';
+            document.getElementById('problemsSection').style.display = 'none';
+            document.getElementById('suggestionSection').style.display = 'none';
+
+            log('正在提交代码并请求AI评分...');
+
+            const TOKEN = localStorage.getItem('token') || '';
+            try {
+                const res = await fetch(API_BASE + '/student/submit', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN},
+                    body: JSON.stringify({
+                        student_id: studentId,
+                        student_name: studentName,
+                        course: course,
+                        task_id: taskId,
+                        language: language,
+                        code: code
+                    })
+                });
+
+                const data = await res.json();
+                document.getElementById('loading').classList.remove('active');
+
+                if (data.code === 200) {
+                    log('✅ 提交成功！AI评分完成', 'output');
+                    displayScore(data.data.ai_score);
+                } else {
+                    log('❌ 提交失败: ' + (data.message || '未知错误'), 'error');
+                }
+
+            } catch (e) {
+                document.getElementById('loading').classList.remove('active');
+                log('❌ 网络错误: ' + e.message, 'error');
+                // 演示模式
+                displayScore({
+                    total_score: 85,
+                    details: [
+                        {category: '功能正确性', score: 35, max_score: 40, comment: '基本功能实现正确，但边界情况处理不完善'},
+                        {category: '代码规范', score: 18, max_score: 20, comment: '命名规范，注释清晰'},
+                        {category: '算法效率', score: 16, max_score: 20, comment: '使用了优先队列优化'},
+                        {category: '代码结构', score: 16, max_score: 20, comment: '函数划分合理'}
+                    ],
+                    problems: [
+                        '缺少对负权边的处理说明',
+                        '没有处理图不连通的情况',
+                        '变量命名可以更语义化'
+                    ],
+                    suggestions: `建议：\n1. 添加对负权边的检测和提示\n2. 使用INF宏定义代替魔法数字\n3. 将输入输出逻辑封装为独立函数`
+                });
+            }
+        }
+
+        function displayScore(score) {
+            if (!score || typeof score !== 'object') {
+                log('评分数据无效', 'error');
+                return;
+            }
+
+            const total = Number.isFinite(Number(score.total_score)) ? Number(score.total_score) : 0;
+            document.getElementById('scoreTotal').textContent = total;
+
+            const detailsEl = document.getElementById('scoreDetails');
+            detailsEl.innerHTML = '';
+
+            const details = Array.isArray(score.details) ? score.details : [];
+            details.forEach(function(d) {
+                const max = Number(d.max_score) || 0;
+                const sc = Number(d.score) || 0;
+                const percent = max > 0 ? (sc / max * 100) : 0;
+                let colorClass = 'score-good';
+                if (percent < 60) colorClass = 'score-bad';
+                else if (percent < 80) colorClass = 'score-warning';
+
+                const item = document.createElement('div');
+                item.className = 'score-item';
+                item.innerHTML = '<div><div class="score-item-name">' + (d.category || '-') + '</div>' +
+                    '<div class="score-item-comment">' + (d.comment || '') + '</div></div>' +
+                    '<div class="score-item-value ' + colorClass + '">' + sc + '/' + max + '</div>';
+                detailsEl.appendChild(item);
+            });
+
+            const problemsEl = document.getElementById('problemsList');
+            if (problemsEl) {
+                problemsEl.innerHTML = '';
+                if (Array.isArray(score.problems) && score.problems.length > 0) {
+                    document.getElementById('problemsSection').style.display = 'block';
+                    score.problems.forEach(function(p) {
+                        const div = document.createElement('div');
+                        div.className = 'problem-item';
+                        div.textContent = p;
+                        problemsEl.appendChild(div);
+                    });
+                } else {
+                    document.getElementById('problemsSection').style.display = 'none';
+                }
+            }
+
+            if (score.suggestions) {
+                document.getElementById('suggestionSection').style.display = 'block';
+                document.getElementById('suggestionBox').textContent = score.suggestions;
+            } else {
+                document.getElementById('suggestionSection').style.display = 'none';
+            }
+        }
+
+        async function runCode() {
+            const code = editor.getValue();
+            const language = document.getElementById('languageSelect').value;
+
+            if (!code.trim()) {
+                log('请先编写代码再运行', 'error');
+                return;
+            }
+
+            // 清空控制台
+            var consoleEl = document.getElementById('console');
+            consoleEl.innerHTML = '';
+
+            log('正在编译运行...', 'info');
+
+            try {
+                const res = await fetch(API_BASE + '/student/run', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')},
+                    body: JSON.stringify({
+                        code: code,
+                        language: language,
+                        stdin: ''
+                    })
+                });
+
+                const data = await res.json();
+
+                if (data.code === 200) {
+                    const r = data.data;
+                    if (r.timed_out) {
+                        log('运行超时（超过10秒）', 'error');
+                    } else if (!r.success && r.stderr) {
+                        // 编译/运行错误
+                        log('编译/运行出错:', 'error');
+                        var lines = r.stderr.split('\\n');
+                        for (var i = 0; i < lines.length; i++) {
+                            if (lines[i].trim()) {
+                                if (lines[i].includes('error:') || lines[i].includes('Error:')) {
+                                    log(lines[i].trim(), 'error');
+                                } else if (lines[i].includes('warning:')) {
+                                    log(lines[i].trim(), 'warning');
+                                } else {
+                                    log(lines[i].trim(), 'output');
+                                }
+                            }
+                        }
+                        if (r.exit_code !== 0 && !r.stderr) {
+                            log('程序退出码: ' + r.exit_code, 'error');
+                        }
+                    } else if (r.success) {
+                        if (r.stdout) {
+                            log('程序输出:', 'output');
+                            var outLines = r.stdout.split('\\n');
+                            for (var i = 0; i < outLines.length; i++) {
+                                if (outLines[i].trim()) {
+                                    log(outLines[i].trim(), 'output');
+                                }
+                            }
+                        } else {
+                            log('程序运行成功，无输出', 'output');
+                        }
+                        if (r.stderr) {
+                            log('stderr:', 'warning');
+                            log(r.stderr.trim(), 'warning');
+                        }
+                        log('程序正常退出 (exit code: 0)', 'info');
+                    } else {
+                        log('运行失败', 'error');
+                        if (r.stderr) log(r.stderr.trim(), 'error');
+                    }
+                } else {
+                    log('请求失败: ' + (data.message || '未知错误'), 'error');
+                }
+
+            } catch (e) {
+                log('网络错误: ' + e.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

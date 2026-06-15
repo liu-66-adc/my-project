@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DATABASE_URL=sqlite:///data/database.sqlite
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./data:/app/data
+      - ./submissions:/app/submissions
+      - ./jplag-results:/app/jplag-results
+      - ./exports:/app/exports
+      - ./jplag-5.1.0.jar:/app/jplag-5.1.0.jar:ro
+    restart: unless-stopped
+    networks:
+      - code-practice
+
+  frontend:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - code-practice
+
+networks:
+  code-practice:
+    driver: bridge
