@@ -1,0 +1,34 @@
+# Render 部署配置
+# 
+# 使用方式：
+# 1. 将本仓库连接到 Render
+# 2. 导入此 render.yaml 自动创建服务
+# 3. 设置环境变量 DEEPSEEK_API_KEY
+#
+# 详细步骤见 DEPLOY.md
+
+services:
+  - type: web
+    name: code-practice-platform
+    runtime: docker
+    repo: https://github.com/liu-66-adc/my-project
+    branch: main
+    dockerfilePath: ./Dockerfile.render
+    plan: free
+    envVars:
+      - key: DEEPSEEK_API_KEY
+        sync: false  # 部署时手动输入
+      - key: DEEPSEEK_API_URL
+        value: https://api.deepseek.com/chat/completions
+      - key: DEEPSEEK_MODEL
+        value: deepseek-chat
+      - key: DEBUG
+        value: "false"
+      - key: LOG_LEVEL
+        value: INFO
+      - key: ALLOWED_ORIGINS
+        value: "*"
+      - key: DATABASE_URL
+        value: sqlite:////data/database.sqlite
+    healthCheckPath: /health
+    numInstances: 1
