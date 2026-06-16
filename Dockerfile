@@ -1,0 +1,38 @@
+# 代码实践平台 - Railway/Docker 通用部署
+# 前端 + 后端合并部署（后端 FastAPI 同时提供前端静态文件）
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# 安装系统依赖（Java 给 JPlag 用）
+RUN apt-get update && apt-get install -y \
+    default-jre \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# 复制并安装 Python 依赖
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+# 复制后端代码
+COPY backend/app/ ./app/
+
+# 复制前端静态文件（后端 main.py 会从 /frontend 提供这些文件）
+COPY frontend/ /frontend/
+
+# 创建运行时数据目录
+RUN mkdir -p /data /submissions /jplag-results /exports && \
+    useradd -m appuser && \
+    chown -R appuser:appuser /app /data /submissions /jplag-results /exports /frontend
+
+USER appuser
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
+
+EXPOSE 8000
+
+# 使用 Railway 注入的 $PORT 变量（默认 8000 兜底）
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 2
