@@ -12,7 +12,7 @@ BASE_DIR = Path(__file__).parent.parent.parent
 
 # 数据目录
 DATA_DIR = BASE_DIR / "data"
-DATA_DIR.mkdir(exist_ok=True)
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # 数据库
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DATA_DIR}/database.sqlite")
@@ -30,7 +30,7 @@ EXPORTS_DIR = BASE_DIR / "exports"
 
 # 确保目录存在
 for d in [SUBMISSIONS_DIR, JPLAG_RESULTS_DIR, EXPORTS_DIR]:
-    d.mkdir(exist_ok=True)
+    d.mkdir(parents=True, exist_ok=True)
 
 # 应用设置
 APP_NAME = os.getenv("APP_NAME", "代码实践平台")
@@ -45,7 +45,7 @@ ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 # 日志
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 LOG_DIR = BASE_DIR / "backend" / "logs"
-LOG_DIR.mkdir(exist_ok=True)
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def validate_config() -> list[str]:
